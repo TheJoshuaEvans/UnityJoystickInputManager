@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 /*
     Original Framework created by Joshua Evans (TheJoshuaEvans.com) and provided under the MIT Liscence. Feel free to expand upon
@@ -46,35 +47,12 @@ public class JoystickInputManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// Enum with values representing either the Horizontal or Vertical axis on the different sticks available
-    /// </summary>
-    public enum AxisTypes
-    {
-        LEFT_HORIZONTAL,
-        LEFT_VERTICAL,
-        RIGHT_HORIZONTAL,
-        RIGHT_VERTICAL,
-        D_HORIZONTAL,
-        D_VERTICAL
-    }
-
-    /// <summary>
-    /// Enum representing the different buttons on the joystick, using the Xbox 360 controller as its base. In other words, the
-    /// "A" button is the bottom face button, which is the "X" button one the Play Station Joystick.
-    /// </summary>
-    public enum ButtonTypes
-    {
-        A_BUTTON,
-        B_BUTTON
-    }
-
-    /// <summary>
     /// Get's the requested axis value of the requested joystick, or 0 if the joystick is not detected
     /// </summary>
-    /// <param name="joystickNumber">The number of the joystick, starting at 1, NOT 0</param>
+    /// <param name="joystickNumber">The number of the joystick. Joystick numbers start at 1, NOT 0</param>
     /// <param name="axis">The Axis being requested</param>
     /// <returns>Float value of the axis, or 0 if the Joystick can not be found</returns>
-    public static float getJoystickAxis(int joystickNumber, AxisTypes axis)
+    public static float getJoystickAxis(int joystickNumber, JoystickData.AxisTypes axis)
     {
         string axisString = "Joystick_";
         axisString += joystickNumber + "_";
@@ -101,17 +79,37 @@ public class JoystickInputManager : MonoBehaviour {
     ///     <para>
     ///         Returns whether or not a given joystick button on a given joystick is pressed
     ///     </para>
-    ///     <para>
-    ///         Button 1 equates to the "A" button on an Xbox 360 joystick
-    ///     </para>
-    ///     <para>
-    ///         Button 2 equates to the "B" button on an Xbox 360 joystick
-    ///     </para>
     /// </summary>
-    /// <param name="joystickNumber">The joystick number, with 1 being the first joystick, NOT 0</param>
+    /// <param name="joystickNumber">The joystick number. Joystick numbers start at 1, NOT 0</param>
     /// <param name="buttonType">The type of button</param>
     /// <returns>Whether or not the button is pressed</returns>
-    public static bool getJoystickButton(int joystickNumber, ButtonTypes buttonType)
+    public static bool getJoystickButton(int joystickNumber, JoystickData.ButtonTypes buttonType)
+    {
+        return Input.GetKey(getKeyString(joystickNumber, buttonType));
+    }
+
+    /// <summary>
+    ///     <para>
+    ///         Returns whether or not a given joystick button on a given joystick has been pressed down this tick
+    ///     </para>
+    /// </summary>
+    /// <param name="joystickNumber">The joystick number. Joystick numbers start at 1, NOT 0</param>
+    /// <param name="buttonType">The type of button</param>
+    /// <returns>Whether or not the button is pressed</returns>
+    public static bool getJoystickButtonDown(int joystickNumber, JoystickData.ButtonTypes buttonType)
+    {
+        return Input.GetKeyDown(getKeyString(joystickNumber, buttonType));
+    }
+
+    /// <summary>
+    ///     <para>
+    ///         Returns whether or not a given joystick button on a given joystick has been released this tick
+    ///     </para>
+    /// </summary>
+    /// <param name="joystickNumber">The joystick number. Joystick numbers start at 1, NOT 0</param>
+    /// <param name="buttonType">The type of button</param>
+    /// <returns>Whether or not the button is pressed</returns>
+    public static bool getJoystickButtonUp(int joystickNumber, JoystickData.ButtonTypes buttonType)
     {
         return Input.GetKey(getKeyString(joystickNumber, buttonType));
     }
@@ -119,7 +117,7 @@ public class JoystickInputManager : MonoBehaviour {
     /// <summary>
     /// Whether or not the provided joystick number is connected
     /// </summary>
-    /// <param name="joystickNumber">The number of the joystick to check for, with joystick 1 being the first NOT joystick 0</param>
+    /// <param name="joystickNumber">The number of the joystick to check for. Joystick numbers start at 1, NOT 0</param>
     /// <returns>Whether or not the joystick is connected</returns>
     public static bool isJoystickConnected(int joystickNumber)
     {
@@ -162,25 +160,16 @@ public class JoystickInputManager : MonoBehaviour {
     /// Returns the joystick type of a given joystick
     /// </summary>
     /// <param name="joystickNumber">The Joystick number</param>
-    /// <returns>The joystick type</returns>
-    public static JoystickTypes getJoystickTypeForJoystickNumber(int joystickNumber)
+    /// <returns>A string representing the joystick type</returns>
+    public static string getJoystickNameForJoystickNumber(int joystickNumber)
     {
-        return getJoystickType(joystickNumber);
+        return getJoystickName(joystickNumber);
     }
 
     /*
         ----------------PRIVATE HELPERS----------------
 
         These helpers handle the calculations that determine what buttons relate to what joysticks on which platforms.
-        
-        It is expected that these helpers should be expanded in order to properly support additional joystick types!
-
-        In order to add a new joystick type, first update the public JoystickTypes enum above with the new joystick's
-        name, then in the private getJoystickTypes function below, add the new joystick type to the switch statement, so that
-        it can be returned. Then update the getKeyString function below to apply button numbers to your new joystick type for
-        the applicable platforms
-
-        Remember to add comments so other people (including your future self!) can figure out what is going on!
     */
 
     /// <summary>
@@ -195,137 +184,72 @@ public class JoystickInputManager : MonoBehaviour {
     /// <param name="joystickNumber"></param>
     /// <param name="buttonType"></param>
     /// <returns></returns>
-    private static string getKeyString(int joystickNumber, ButtonTypes buttonType)
+    private static string getKeyString(int joystickNumber, JoystickData.ButtonTypes buttonType)
     {
         string retString = "joystick " + joystickNumber + " button ";
 
-        // This process has two layers of checks, first we check for the platform, and then we check for the joystick type
+        // First use the platform to determine which register to search
+        Dictionary<string, Dictionary<JoystickData.ButtonTypes, int>> register;
+        string platformString;
         switch (Application.platform)
         {
             case RuntimePlatform.WindowsPlayer | RuntimePlatform.WindowsEditor:
-
-                switch (getJoystickType(joystickNumber))
-                {
-                    case JoystickTypes.WIRELESS_CONTROLLER:
-                        // The generic wireless joystick set up on windows
-                        switch (buttonType)
-                        {
-                            case ButtonTypes.A_BUTTON:
-                                // For the wireless joystick, "1" equates to the "A" button on a 360 joystick
-                                retString += "1";
-                                break;
-                            case ButtonTypes.B_BUTTON:
-                                // For the wireless joystick, "2" equates to the "B" button on a 360 joystick
-                                retString += "2";
-                                break;
-                            default:
-                                throw new System.Exception("Unsupported button number " + buttonType);
-                        }
-                        break;
-
-                    default:
-                        // The default joystick set up on windows is based off of the "WIRELESS_CONTROLLER" type
-                        switch (buttonType)
-                        {
-                            case ButtonTypes.A_BUTTON:
-                                // For the default joystick, "1" equates to the "A" button on a 360 joystick
-                                retString += "1";
-                                break;
-                            case ButtonTypes.B_BUTTON:
-                                // For the default joystick, "2" equates to the "B" button on a 360 joystick
-                                retString += "2";
-                                break;
-                            default:
-                                throw new System.Exception("Unsupported button number " + buttonType);
-                        }
-                        break;
-                }
-
+                register = JoystickData.register_windows;
+                platformString = "Windows";
                 break;
             case RuntimePlatform.OSXPlayer | RuntimePlatform.OSXEditor:
-
-                switch (getJoystickType(joystickNumber))
-                {
-                    case JoystickTypes.WIRELESS_CONTROLLER:
-                        // The generic wireless joystick set up on osx
-                        switch (buttonType)
-                        {
-                            case ButtonTypes.A_BUTTON:
-                                // For the wireless joystick, "1" equates to the "A" button on a 360 joystick
-                                retString += "1";
-                                break;
-                            case ButtonTypes.B_BUTTON:
-                                // For the wireless joystick, "2" equates to the "B" button on a 360 joystick
-                                retString += "2";
-                                break;
-                            default:
-                                throw new System.Exception("Unsupported button number " + buttonType);
-                        }
-                        break;
-
-                    default:
-                        // The default joystick set up on OSX is based off of the "WIRELESS_CONTROLLER" type
-                        switch (buttonType)
-                        {
-                            case ButtonTypes.A_BUTTON:
-                                // For the default joystick, "1" equates to the "A" button on a 360 joystick
-                                retString += "1";
-                                break;
-                            case ButtonTypes.B_BUTTON:
-                                // For the default joystick, "2" equates to the "B" button on a 360 joystick
-                                retString += "2";
-                                break;
-                            default:
-                                throw new System.Exception("Unsupported button number " + buttonType);
-                        }
-                        break;
-                }
-
+                register = JoystickData.register_osx;
+                platformString = "OSX";
                 break;
             case RuntimePlatform.LinuxPlayer:
-
-                switch (getJoystickType(joystickNumber))
-                {
-                    case JoystickTypes.WIRELESS_CONTROLLER:
-                        // The generic wireless joystick set up on linux
-                        switch (buttonType)
-                        {
-                            case ButtonTypes.A_BUTTON:
-                                // For the wireless joystick, "1" equates to the "A" button on a 360 joystick
-                                retString += "1";
-                                break;
-                            case ButtonTypes.B_BUTTON:
-                                // For the wireless joystick, "2" equates to the "B" button on a 360 joystick
-                                retString += "2";
-                                break;
-                            default:
-                                throw new System.Exception("Unsupported button number " + buttonType);
-                        }
-                        break;
-
-                    default:
-                        // The default joystick set up on Linux is based off of the "WIRELESS_CONTROLLER" type
-                        switch (buttonType)
-                        {
-                            case ButtonTypes.A_BUTTON:
-                                // For the default joystick, "1" equates to the "A" button on a 360 joystick
-                                retString += "1";
-                                break;
-                            case ButtonTypes.B_BUTTON:
-                                // For the default joystick, "2" equates to the "B" button on a 360 joystick
-                                retString += "2";
-                                break;
-                            default:
-                                throw new System.Exception("Unsupported button number " + buttonType);
-                        }
-                        break;
-                }
-
+                register = JoystickData.register_linux;
+                platformString = "Linux";
                 break;
             default:
                 // If the player type is not supported, throw an error!
                 throw new System.Exception("ControllerInput only supports Windows, OSX, and Linux Unity players!");
         }
+
+        // Attempt to find the joystick name in the register
+        string joystickName = getJoystickName(joystickNumber);
+        Dictionary<JoystickData.ButtonTypes, int> buttonConfig;
+
+        if (!register.ContainsKey(joystickName))
+        {
+            // The joystick name wasn't found! Log so that developers know to add the joystick (if they want)
+            logOnce("No " + platformString + " register exists for joystick name \"" + joystickName + "\". Switching to default register!");
+            register = JoystickData.register_default;
+        }
+        else if (!register[joystickName].ContainsKey(buttonType))
+        {
+            // The button type was not found on the platform specific register, switch to the default register
+            logOnce("Button of type \"" + buttonType + "\" not found on " + platformString + " register. Switching to default");
+            register = JoystickData.register_default;
+        }
+
+        if (!register.ContainsKey(joystickName))
+        {
+            // The default register doesn't contain an entry for this joystick name, log and go to default!
+            logOnce("Joystick name \"" + joystickName + "\" not found in default register. Switching to default joystick name!");
+            joystickName = "default";
+
+            if (!register.ContainsKey(joystickName))
+            {
+                // If we reach this code, it means the default register doesn't have a default button configuration. This is bad!
+                throw new System.Exception("There is no default button configuration for the default register! Critical error!");
+            }
+
+            // While we are here, make sure there the requested button is in the default joystick config of the default register
+            if (!register[joystickName].ContainsKey(buttonType))
+            {
+                // The requested button doesn't exist on the default joystick configuration! This is bad!
+                throw new System.Exception("Button of type \"" + buttonType + "\" does not exist on default joystick configuration! Critical Error!");
+            }
+        }
+
+        buttonConfig = register[joystickName];
+
+        retString += buttonConfig[buttonType];
 
         return retString;
     }
@@ -333,31 +257,46 @@ public class JoystickInputManager : MonoBehaviour {
     /// <summary>
     /// Determines what joystick type is being used in a specific joystick slot, and then returns the apropriate string
     /// </summary>
-    /// <param name="joystickNumber">The joystick number (Note that this number Starts at 1, NOT 0</param>
+    /// <param name="joystickNumber">The joystick number. Joystick numbers start at 1, NOT 0</param>
     /// <returns>A string denoting the joystick type</returns>
-    private static JoystickTypes getJoystickType(int joystickNumber)
+    private static string getJoystickName(int joystickNumber)
     {
-        JoystickTypes type;
+        string[] joystickNames = Input.GetJoystickNames();
 
-        try
+        // First do some bounds checking
+        if (joystickNames.Length < joystickNumber)
         {
-            switch (Input.GetJoystickNames()[joystickNumber - 1])
-            {
-                case "Wireless Controller":
-                    type = JoystickTypes.WIRELESS_CONTROLLER;
-                    break;
-                default:
-                    type = JoystickTypes.DEFAULT;
-                    break;
-            }
-        }
-        catch
-        {
-            // We got an error. We probably went out of bounds, just use the default so we don't break anything
-            type = JoystickTypes.DEFAULT;
-            Debug.LogWarning("Attempting to get joystick type for joystick number " + joystickNumber + " that doesn't exist!");
+            // We are out of bounds! Log a warning and return "default"
+            Debug.LogWarning("Attempting to get a joystick type out of bounds! Number attempted: " + joystickNumber + " | Number available: " + joystickNames.Length);
+            return "default";
         }
 
-        return type;
+        // Now check if a name for the controller is available
+        if (joystickNames[joystickNumber - 1] == "")
+        {
+            // The controller isn't plugged in! Log a warning and return "default"
+            Debug.LogWarning("Attempting to get joystick type for unplugged joystick number: " + joystickNumber);
+            return "default";
+        }
+
+        return joystickNames[joystickNumber - 1];
+    }
+
+    /// <summary>
+    /// Special dictionary used to effeciently determine if a string has previously been logged
+    /// </summary>
+    private static Dictionary<string, bool> loggedStrings = new Dictionary<string, bool>();
+
+    /// <summary>
+    /// Logging can be surprisingly expensive, so make sure that we only log non-warnings once!
+    /// </summary>
+    /// <param name="log">The message that should be logged</param>
+    private static void logOnce(string log)
+    {
+        if (!loggedStrings.ContainsKey(log))
+        {
+            Debug.Log(log);
+            loggedStrings.Add(log, true);
+        }
     }
 }
